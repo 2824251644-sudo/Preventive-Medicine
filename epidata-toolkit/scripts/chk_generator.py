@@ -42,6 +42,25 @@ def opt_numbers(f):
             nums.append(int(m.group(1)))
     return nums
 
+
+# 常见数值字段自动 RANGE（保守表：只加有把握的，避免误伤）
+RANGE_HINTS = [
+    (("AGE",), "年龄", 0, 120),
+    (("TEMP",), "体温", 30, 45),
+]
+
+def auto_range(f, name, label):
+    """RANGE 自动推断：无 options 的 number 字段，字段名/标签命中保守表时自动生成 RANGE。
+    显式 range 优先（此处仅在未配置 range 时被调用）。"""
+    if f.get("options") or f.get("type", "").lower() != "number":
+        return None
+    up = name.upper()
+    for keys, kw, lo, hi in RANGE_HINTS:
+        if any(k in up for k in keys) or kw in (label or ""):
+            return [lo, hi]
+    return None
+
+
 def auto_other_jumps(f, all_names):
     """自动"其他"跳转：选项含其他/其它 → 注明字段（字段名+O）"""
     jumps = dict(f.get("jumps") or {})
@@ -83,6 +102,31 @@ def auto_expand_other(fields):
     return out
 
 
+
+# 必填自动推荐规则表（保守：字段名精确匹配，避免 FARMNAME/CASENAME 被 NAME 误伤）
+REQUIRED_EXACT = {
+    "NAME", "SEX", "AGE", "AGEM", "OCCUP", "ONSETDT", "OUTCOME", "ADDRESS",
+    "MOBILE", "TEL", "TEL1", "BIRTHDT", "DIAGUNIT", "SURVDT", "SURVTM",
+    "SURVNAME", "SURVUNIT", "INVDT", "INVNAME", "SIGN", "SURVSIGN",
+}
+REQUIRED_LABEL_KW = ("发病日期", "出生日期", "最终诊断", "现住址",
+                     "调查时间", "调查人", "签名", "随访日期", "随访单位")
+
+def auto_required(f, name, label, opts):
+    """必填自动推荐：显式 required 优先；核心信息字段（精确匹配）、
+    标签命中核心关键词、或含'不知道/不详'兜底选项的字段自动推荐。"""
+    if "required" in f:
+        return f["required"]
+    if name in REQUIRED_EXACT:
+        return True
+    if any(kw in (label or "") for kw in REQUIRED_LABEL_KW):
+        return True
+    # 有"不知道/不清楚/不详"兜底选项的字段（多为暴露史），必填不会卡录入
+    if any(("不知道" in str(o)) or ("不清楚" in str(o)) or ("不详" in str(o)) for o in opts):
+        return True
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser(description="生成 EpiData chk 检查文件（标准格式）")
     ap.add_argument("input", help="字段定义 JSON 文件")
@@ -91,6 +135,8 @@ def main():
                     help="输出编码（默认 gbk，兼容 EpiData 3.1 中文版）")
     ap.add_argument("--newline", choices=["crlf", "lf"], default="crlf",
                     help="输出行尾（默认 crlf）")
+    ap.add_argument("--auto-required", action=argparse.BooleanOptionalAction, default=True,
+                    help="必填自动推荐（默认开；--no-auto-required 关闭，仅用显式 required）")
     args = ap.parse_args()
 
     data = json.load(open(args.input, encoding="utf-8"))
@@ -104,11 +150,15 @@ def main():
             print(f"错误: 存在无 name 的字段", file=sys.stderr)
             sys.exit(1)
         lines = [name]  # 裸字段名
+        opts = f.get("options") or []
+        if isinstance(opts, str):
+            opts = [o for o in opts.split("\n") if o.strip()]
+        label = f.get("label", "")
 
         # RANGE（仅当有 range 且无 options/legal 时，二者互斥）
         nums = opt_numbers(f)
         legal = f.get("legal") or (nums if nums else None)
-        rng = f.get("range")
+        rng = f.get("range") or auto_range(f, name, label)
         if rng and not legal:
             if isinstance(rng, (list, tuple)):
                 rng_str = f"{rng[0]} {rng[1]}"
@@ -131,9 +181,14 @@ def main():
                 lines.append(f"    {val} {target}")
             lines.append("  END")
 
-        # MUSTENTER（必填，连写）
-        if f.get("required"):
+        # MUSTENTER（必填，连写；auto_required 推荐，显式 required 优先）
+        required = f.get("required") if not args.auto_required else auto_required(f, name, label, opts)
+        if required:
             lines.append("  MUSTENTER")
+
+        # 无检查命令的字段不写入 chk（官方规范：if there are no Check commands, then nothing is written）
+        if not (rng or legal or jumps or required):
+            continue
 
         lines.append("END")  # 字段块结束（无缩进）
         blocks.append("\n".join(lines))
@@ -152,7 +207,7 @@ def main():
 
     with open(args.output, "w", encoding=args.encoding, newline="") as fh:
         fh.write(content)
-    print(f"✓ 已生成 {args.output}（{args.encoding}，{args.newline}，{len(blocks)} 个字段块）")
+    print(f"✓ 已生成 {args.output}（{args.encoding}，{args.newline}，{len(blocks)} 个有规则字段块）")
 
 if __name__ == "__main__":
     main()

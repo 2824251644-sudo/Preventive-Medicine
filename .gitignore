@@ -231,3 +231,4 @@ epidata_work/
 *.qes
 *.chk
 !epidata-toolkit/assets/template.qes
+second-brain/

@@ -42,6 +42,57 @@ VALID_DATES = ["<dd/mm/yyyy>", "<mm/dd/yyyy>", "<yyyy/mm/dd>",
                "<Today-dmy>", "<Today-mdy>", "<Today-ymd>"]
 
 
+
+# GBK 无法编码字符的自动替换表。
+# 实测：GBK 原生支持 ℃±×÷≤≥μ、罗马数字Ⅰ-Ⅻ、≠≈→←√∞…·—–°′″ 等医学常用符号，
+# 仅上标/下标数字无法编码，必须替换（见 references/gbk_chars.md）。
+GBK_REPLACE = {
+    # 上标数字 → ^n（GBK 不支持，如 ×10⁹/L → ×10^9/L）
+    "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "⁴": "^4",
+    "⁵": "^5", "⁶": "^6", "⁷": "^7", "⁸": "^8", "⁹": "^9",
+    # 下标数字 → 数字
+    "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4",
+    "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9",
+}
+
+def apply_gbk_replace(content):
+    """替换 GBK 无法编码的字符；返回 (新内容, 已替换映射列表, 仍不可编码字符集)"""
+    bad_before = sorted({c for c in content if not _gbk_ok(c)})
+    if not bad_before:
+        return content, [], set()
+    replaced, still_bad = {}, set()
+    for c in bad_before:
+        if c in GBK_REPLACE:
+            content = content.replace(c, GBK_REPLACE[c])
+            replaced[c] = GBK_REPLACE[c]
+        else:
+            still_bad.add(c)
+    return content, list(replaced.items()), still_bad
+
+def _gbk_ok(c):
+    try:
+        c.encode("gbk")
+        return True
+    except UnicodeEncodeError:
+        return False
+
+
+
+def infer_date_format(label):
+    """日期格式自动推断：按 label 中"年月日"连续提示（可夹空格）推断填写顺序。
+    年 月 日 → <yyyy/mm/dd>；日 月 年 → <dd/mm/yyyy>；月 日 年 → <mm/dd/yyyy>。
+    无提示（如"发现日期"）返回 None，由调用方用默认格式。
+    用正则匹配连续顺序，避免"日期"里的"日"字干扰（find 会误命中）。"""
+    lab = label or ""
+    if re.search(r"年\s*月\s*日", lab):
+        return "<yyyy/mm/dd>"
+    if re.search(r"日\s*月\s*年", lab):
+        return "<dd/mm/yyyy>"
+    if re.search(r"月\s*日\s*年", lab):
+        return "<mm/dd/yyyy>"
+    return None
+
+
 def build_mask(field):
     """根据字段定义生成 EpiData 掩码。"""
     ftype = field.get("type", "").lower()
@@ -62,7 +113,7 @@ def build_mask(field):
             raise ValueError(f"字段 {field.get('name')}: length 必须 >= 1（中文字数）")
         return "_" * (length * 2)
     if ftype == "date":
-        fmt = field.get("date_format", "<dd/mm/yyyy>")
+        fmt = field.get("date_format") or infer_date_format(field.get("label", "")) or "<dd/mm/yyyy>"
         if fmt not in VALID_DATES:
             raise ValueError(f"字段 {field.get('name')}: 非法日期格式 '{fmt}'，仅支持 {VALID_DATES}")
         return fmt
@@ -112,6 +163,21 @@ def auto_expand_other(fields):
     return out
 
 
+
+def auto_digits(field, opts):
+    """掩码位数自动匹配：number 字段未显式 digits 时，按选项编号最大位数自动设置。
+    例: 选项编号到【10】以上时自动用 ##（1位#容纳不下会截断录入）。"""
+    if field.get("type", "").lower() != "number" or "digits" in field:
+        return
+    nums = []
+    for o in opts:
+        m = re.match(r"【(\d+)】", str(o))
+        if m:
+            nums.append(int(m.group(1)))
+    if nums:
+        field["digits"] = max(1, len(str(max(nums))))
+
+
 def generate_qes(data):
     """生成 qes 文本内容（按行返回）。
 
@@ -137,11 +203,17 @@ def generate_qes(data):
         if name in seen:
             raise ValueError(f"字段名 '{name}' 重复")
         seen.add(name)
-        mask = build_mask(field)
 
         # 章节标题（配置在对应字段之前，普通文本行）
         if name in sections:
             lines.append(f"{sections[name]}")
+
+        # 选项同行: 【1】男  【2】女（双空格分隔）
+        opts = field.get("options", "")
+        if isinstance(opts, str):
+            opts = [o for o in opts.split("\n") if o.strip()]
+        auto_digits(field, opts)   # 掩码位数自动匹配（在 build_mask 前）
+        mask = build_mask(field)
 
         # 行: {变量}问题文本掩码
         label = str(field.get("label", "")).strip()
@@ -149,10 +221,6 @@ def generate_qes(data):
             label += "："  # 全角冒号（与标准示范一致）；【n】选项注明行不加冒号
         line = f"{{{name}}}{label}{mask}"
 
-        # 选项同行: 【1】男  【2】女（双空格分隔）
-        opts = field.get("options", "")
-        if isinstance(opts, str):
-            opts = [o for o in opts.split("\n") if o.strip()]
         if opts:
             line += "  " + "  ".join(str(o).strip() for o in opts)
         lines.append(line)
@@ -182,18 +250,16 @@ def main():
     newline = "\r\n" if args.newline == "crlf" else "\n"
     content = content.replace("\n", newline)
 
-    # GBK 兼容性预检：EpiData 3.1 中文版只支持 GBK，
-    # 上标/生僻 Unicode 字符（如 ⁹）在 GBK 中无法编码，会直接报错或乱码
+    # GBK 兼容性预检：EpiData 3.1 中文版只支持 GBK。
+    # 先自动替换上标/罗马数字等 GBK 不支持的字符（⁹→^9 等），替换后仍不可编码才报错
     if args.encoding == "gbk":
-        bad = set()
-        try:
-            content.encode("gbk")
-        except UnicodeEncodeError as e:
-            ch = content[e.start]
-            bad.add(ch)
-        if bad:
-            print(f"错误: 内容含 GBK 无法编码的字符 {''.join(sorted(bad))}（EpiData 3.1 中文版不支持）", file=sys.stderr)
-            print("提示: 上标字符改用 ASCII（如 ×10⁹/L → ×10^9/L）", file=sys.stderr)
+        content, replaced, still_bad = apply_gbk_replace(content)
+        if replaced:
+            shown = ", ".join(f"{k}→{v}" for k, v in replaced[:10])
+            print(f"⚠ 已自动替换 GBK 不支持字符 {len(replaced)} 处: {shown}")
+        if still_bad:
+            print(f"错误: 内容含 GBK 无法编码的字符 {''.join(sorted(still_bad))}（EpiData 3.1 中文版不支持，且无自动替换规则）", file=sys.stderr)
+            print("提示: 请手动改为 GBK 支持的写法", file=sys.stderr)
             sys.exit(1)
 
     try:

@@ -62,13 +62,16 @@ python3 scripts/generate_all.py survey.json -o 调查表
 - **多选（□A □B □C）展开**：每个选项一个独立字段（`#【1】有【2】无`），保证可多选录入；"其它"项加 `O` 后缀注明字段（label 写 `【n】其它`，不加冒号）。
 - **表格展开**：按原表固定行数展开为多组字段，变量命名 `前缀+序号+列字母`（如就诊6次×8列：VISIT1U/VISIT1D/.../VISIT6O；禽类饲养3行：POUL1K...POUL3F；家庭成员5位：MEM1N...MEM5W）。
 - **"其他/其它____（注明）"自动补齐**：字段选项含"其他/其它"时，生成器自动追加注明字段 `字段名+O`（文本，label 取选项原文如 `【18】其他`，不加冒号），无需手工配置；若 JSON 已显式定义同源注明字段（`name+O` 或 `name[:-1]+O`，兼容 HANDWASO 式简化命名）则跳过，不重复生成。
-- **GBK 特殊字符陷阱**：上标字符（⁹ 等）GBK 无法编码，生成会报错；**℃ 可以**，`×10⁹/L` 要写成 `×10^9/L`。
+- **掩码位数自动匹配**：number 字段未显式 `digits` 时，按选项编号最大位数自动设置（选项到【10】以上自动用 `##`），不会截断录入
+- **日期格式自动推断**：date 字段未显式 `date_format` 时，按 label 中"年 月 日/日 月 年/月 日 年"连续提示自动推断 `<yyyy/mm/dd>`/`<dd/mm/yyyy>`/`<mm/dd/yyyy>`；无提示默认 `<dd/mm/yyyy>`
+- **上标字符自动替换**：GBK 不支持的字符自动替换（`⁹→^9`、下标数字→数字），替换后仍不可编码才报错；GBK 原生支持 ℃±×÷≤≥μ 与罗马数字 Ⅰ-Ⅻ（对照见 references/gbk_chars.md）
 
 **1.3 生成与交付**
-1. `scripts/qes_generator.py <input.json> -o <output.qes>`（默认 GBK+CRLF）
+1. `scripts/qes_generator.py <input.json> -o <output.qes>`（默认 GBK+CRLF；自动：掩码位数匹配/日期格式推断/上标替换）
 2. `scripts/qes_validator.py <output.qes>` 校验
-3. 交付 qes（GBK+CRLF，EpiData 用）+ txt（UTF-8，用户检查用，用 fix_encoding.py 转）
-4. 生成后**对照原文逐条核对**：字段数、章节数、关键选项、选项编号，确保无遗漏
+3. `scripts/generate_all.py <input.json> -o <基名>` 一键产出 qes + txt + chk + chk检查版；多份调查表用 `scripts/batch_generate.py <json目录> -o <输出目录>` 批量生成
+4. 交付 qes（GBK+CRLF，EpiData 用）+ txt（UTF-8，用户检查用，用 fix_encoding.py 转）
+5. 生成后**对照原文逐条核对**：字段数、章节数、关键选项、选项编号，确保无遗漏
 
 ### qes 行格式规范（EpiData 标准）
 
@@ -114,20 +117,30 @@ python3 scripts/generate_all.py survey.json -o 调查表
 python3 scripts/chk_generator.py survey.json -o 调查表.chk
 ```
 
-**标准格式（用户锚定）**：字段头裸字段名（无花括号、不写 TYPE）；`  RANGE 1 5` 空格分隔；`LEGAL`/`JUMPS` 为子块（内容缩进4、`  END` 缩进2结束）；`  MUSTENTER` 连写；字段块以无缩进 `END` 收尾。**RANGE 与 LEGAL 互斥**（选项字段走 LEGAL，纯数值范围走 RANGE）。未确认结构（TYPE/AUTOENTER/NOENTER/KEY/REPEAT/VERIFY/BEFORE/AFTER）一律不生成。
+**标准格式（用户锚定）**：字段头裸字段名（无花括号、不写 TYPE）；`  RANGE 1 5` 空格分隔；`LEGAL`/`JUMPS` 为子块（内容缩进4、`  END` 缩进2结束）；`  MUSTENTER` 连写；字段块以无缩进 `END` 收尾。**RANGE 与 LEGAL 互斥**（选项字段走 LEGAL，纯数值范围走 RANGE）。**无检查命令的字段不写入 chk**（官方规范：if there are no Check commands, then nothing is written）。未确认结构（TYPE/AUTOENTER/NOENTER/KEY/REPEAT/VERIFY/BEFORE/AFTER）一律不生成。
 
-**自动"其他"补齐**：字段选项含"其他/其它"时，qes 自动生成注明字段 `字段名+O`（文本下划线栏），chk 自动生成 JUMPS（其他编号 → 注明字段，选其他即跳到注明栏填写），与显式 jumps 合并不覆盖；含"其他"字段 100% 覆盖跳转，不再有"无注明字段"的漏项。
+**自动规则（默认开启）**：
+- "其他"补齐：字段选项含"其他/其它"时 qes 自动生成注明字段 `字段名+O`，chk 自动 JUMPS（其他编号 → 注明字段），含"其他"字段 100% 覆盖跳转
+- RANGE 自动推断：无 options 的数值字段按字段名/标签命中保守表自动生成（年龄 0-120、体温 30-45），显式 range 优先
+- 必填自动推荐：显式 `required` 优先；核心信息字段（精确匹配 NAME/SEX/AGE/OCCUP/ONSETDT/OUTCOME/ADDRESS/MOBILE/TEL 等）、标签命中核心关键词、或含"不知道/不详"兜底选项的字段自动 MUSTENTER；`--no-auto-required` 可关闭
 
 **必填原则**：核心人口学/暴露/诊断/调查信息设 `required`；有"不知道"兜底的暴露字段放心必填；条件性字段不简单必填。
 
-**生成后校验**：字段块数=qes 字段数；RANGE 与 LEGAL 互斥；JUMPS 目标全部存在；"其他"字段跳转全覆盖（自动补齐后含"其他"选项的字段必有跳转）；MUSTENTER 逐一核对不卡录入。规则完整规范见 [references/chk_format.md](references/chk_format.md)。
+**生成后校验**：有规则字段块数 ≤ qes 字段数（无规则不写）；块全部含规则（无空块）；RANGE 与 LEGAL 互斥；JUMPS 目标全部存在；"其他"字段跳转全覆盖；MUSTENTER 逐一核对不卡录入。规则完整规范见 [references/chk_format.md](references/chk_format.md)。
 
-### 5. rec 数据文件与双录入比对
+### 5. rec 数据文件与结构校验、双录入比对
 
 **.rec 数据文件必须用 EpiData 软件生成**（EntryClient 中由 qes 创建，自动加 ID 字段）：打开 EpiData Entry → 选择 qes → 生成 rec，如报错优先检查编码（GBK）与行尾（CRLF）。
 
-录入完成后做**双录入比对**（EpiData 数据质量核心环节：两人各录一遍，比对不一致处回查原始问卷）：
+**rec↔qes 结构校验**（生成 rec 后必做，防字段错位/漏项）：
+```bash
+python3 scripts/rec_check.py 调查表.qes 数据.rec [-o 报告.txt]
+```
+- 比对字段数量/名称/顺序（自动过滤 rec 的 LABEL 标题字段与自动 ID 字段）
+- **chk 与 rec 必须由同一份 qes 配套生成**：rec 字段名若与 qes 不一致（如 FOUNDTM1 vs FOUNDTM），EpiData 会拒绝加载 chk（表现为"扫描不到 chk"）
+- 退出码 0=一致、2=不一致
 
+**双录入比对**（EpiData 数据质量核心环节：两人各录一遍，比对不一致处回查原始问卷）：
 ```bash
 python3 scripts/rec_compare.py 录入1.rec 录入2.rec -o 差异报告.txt
 ```

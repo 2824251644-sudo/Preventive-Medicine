@@ -25,8 +25,8 @@ END                       ← ⑥字段块结束：无缩进
 | 范围 | `  RANGE 1 5` | 上限下限**空格分隔**；日期同理 `  RANGE 01/01/2020 31/12/2026` |
 | 合法值 | `  LEGAL` 子块 | 每个合法值一行（缩进4），`  END` 结束；**与 RANGE 互斥，只能二选一** |
 | 跳转 | `  JUMPS` 子块 | 每行 `值 目标字段`（缩进4），`  END` 结束；目标可用字段名 / NEXT / END / WRITE |
-| 必填 | `  MUSTENTER` | 连写无空格 |
-| 空字段 | `字段名` + `END` | 无规则的字段也要成块 |
+| 必填 | `  MUSTENTER` | 连写无空格；可显式 `required` 或自动推荐 |
+| 空字段 | — | **无检查命令的字段不写入 chk**（官方规范：if there are no Check commands, then nothing is written）；只有字段块整体有规则才生成块 |
 
 **未确认/不使用**：TYPE、AUTOENTER、NOENTER、KEY、REPEAT、VERIFY、BEFORE/AFTER ENTRY 等结构一律**不生成**（待用户提供标准样例后再支持）。
 
@@ -37,7 +37,9 @@ END                       ← ⑥字段块结束：无缩进
 | `options: [...]` | `LEGAL` 子块（选项编号逐行） |
 | `legal: [1,2,5]` | `LEGAL` 子块 |
 | `range: [1,120]` 或 `"1-120"` | `  RANGE 1 120`（有 options 时忽略，互斥） |
+| 无 range 无 options 的数值字段 | **自动推断** `RANGE`：字段名/标签命中保守表（年龄 0-120、体温 30-45），显式 range 优先 |
 | `required: true` | `  MUSTENTER` |
+| 未配置 required 的字段 | **自动推荐**：核心字段名精确匹配（NAME/SEX/AGE/OCCUP/ONSETDT/OUTCOME/ADDRESS/MOBILE/TEL 等）、标签命中核心关键词、或含"不知道/不详"兜底选项 → `MUSTENTER`；`--no-auto-required` 关闭 |
 | `jumps: {"2": "FIELD"}` | `JUMPS` 子块（`2 FIELD`） |
 | 选项含"其他/其它"且存在注明字段 | **自动** `JUMPS`：其他编号 → 字段名+O（与显式 jumps 合并，不覆盖同值） |
 
