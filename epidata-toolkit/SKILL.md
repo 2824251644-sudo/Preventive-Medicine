@@ -110,9 +110,20 @@ python3 scripts/chk_generator.py survey.json -o 调查表.chk
 
 **生成后校验**：字段块数=qes 字段数；RANGE 与 LEGAL 互斥；JUMPS 目标全部存在；"其他"字段跳转全覆盖；MUSTENTER 逐一核对不卡录入。规则完整规范见 [references/chk_format.md](references/chk_format.md)。
 
-### 5. 生成 rec 数据文件
+### 5. rec 数据文件与双录入比对
 
-.qes 是纯文本可直接生成；**.rec 数据文件必须用 EpiData 软件**（EntryClient 中由 qes 创建，自动加 ID 字段）。告知用户：打开 EpiData Entry → 选择 qes → 生成 rec，如报错优先检查编码（GBK）与行尾（CRLF）。
+**.rec 数据文件必须用 EpiData 软件生成**（EntryClient 中由 qes 创建，自动加 ID 字段）：打开 EpiData Entry → 选择 qes → 生成 rec，如报错优先检查编码（GBK）与行尾（CRLF）。
+
+录入完成后做**双录入比对**（EpiData 数据质量核心环节：两人各录一遍，比对不一致处回查原始问卷）：
+
+```bash
+python3 scripts/rec_compare.py 录入1.rec 录入2.rec -f survey.json -o 差异报告.txt
+```
+
+- `survey.json` 与生成 qes/chk 时用**同一份**（字段顺序/宽度必须一致）
+- 自动探测头部偏移；特殊版本用 `--skip-bytes N` 手动指定
+- 输出一致率与差异明细（记录号 + 字段名 + 两值）；退出码 0=一致、1=有差异
+- rec 格式说明与宽度速查见 [references/rec_format.md](references/rec_format.md)
 
 ## 常见问题
 
