@@ -225,3 +225,9 @@ __marimo__/
 # 查看版与压缩包不入库（需要时用 fix_encoding.py 随时生成）
 *.txt
 *.zip
+
+# 调查表产物不入库（本地保留，qes/chk 由 skill 生成）
+epidata_work/
+*.qes
+*.chk
+!epidata-toolkit/assets/template.qes
