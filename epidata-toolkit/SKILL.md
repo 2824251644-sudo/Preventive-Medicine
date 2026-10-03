@@ -61,7 +61,7 @@ python3 scripts/generate_all.py survey.json -o 调查表
 - **联系电话 = 11 位数字**掩码 `###########`（type:"number", digits:11），不用文本下划线
 - **多选（□A □B □C）展开**：每个选项一个独立字段（`#【1】有【2】无`），保证可多选录入；"其它"项加 `O` 后缀注明字段（label 写 `【n】其它`，不加冒号）。
 - **表格展开**：按原表固定行数展开为多组字段，变量命名 `前缀+序号+列字母`（如就诊6次×8列：VISIT1U/VISIT1D/.../VISIT6O；禽类饲养3行：POUL1K...POUL3F；家庭成员5位：MEM1N...MEM5W）。
-- **每个"其他____（注明）"选项**单独建文本字段，字段名加 `O` 后缀。
+- **"其他/其它____（注明）"自动补齐**：字段选项含"其他/其它"时，生成器自动追加注明字段 `字段名+O`（文本，label 取选项原文如 `【18】其他`，不加冒号），无需手工配置；若 JSON 已显式定义同源注明字段（`name+O` 或 `name[:-1]+O`，兼容 HANDWASO 式简化命名）则跳过，不重复生成。
 - **GBK 特殊字符陷阱**：上标字符（⁹ 等）GBK 无法编码，生成会报错；**℃ 可以**，`×10⁹/L` 要写成 `×10^9/L`。
 
 **1.3 生成与交付**
@@ -116,11 +116,11 @@ python3 scripts/chk_generator.py survey.json -o 调查表.chk
 
 **标准格式（用户锚定）**：字段头裸字段名（无花括号、不写 TYPE）；`  RANGE 1 5` 空格分隔；`LEGAL`/`JUMPS` 为子块（内容缩进4、`  END` 缩进2结束）；`  MUSTENTER` 连写；字段块以无缩进 `END` 收尾。**RANGE 与 LEGAL 互斥**（选项字段走 LEGAL，纯数值范围走 RANGE）。未确认结构（TYPE/AUTOENTER/NOENTER/KEY/REPEAT/VERIFY/BEFORE/AFTER）一律不生成。
 
-**自动"其他"跳转**：字段选项含"其他/其它"且存在注明字段（字段名+O）时自动生成 JUMPS（选其他→注明栏），与显式 jumps 合并不覆盖。
+**自动"其他"补齐**：字段选项含"其他/其它"时，qes 自动生成注明字段 `字段名+O`（文本下划线栏），chk 自动生成 JUMPS（其他编号 → 注明字段，选其他即跳到注明栏填写），与显式 jumps 合并不覆盖；含"其他"字段 100% 覆盖跳转，不再有"无注明字段"的漏项。
 
 **必填原则**：核心人口学/暴露/诊断/调查信息设 `required`；有"不知道"兜底的暴露字段放心必填；条件性字段不简单必填。
 
-**生成后校验**：字段块数=qes 字段数；RANGE 与 LEGAL 互斥；JUMPS 目标全部存在；"其他"字段跳转全覆盖；MUSTENTER 逐一核对不卡录入。规则完整规范见 [references/chk_format.md](references/chk_format.md)。
+**生成后校验**：字段块数=qes 字段数；RANGE 与 LEGAL 互斥；JUMPS 目标全部存在；"其他"字段跳转全覆盖（自动补齐后含"其他"选项的字段必有跳转）；MUSTENTER 逐一核对不卡录入。规则完整规范见 [references/chk_format.md](references/chk_format.md)。
 
 ### 5. rec 数据文件与双录入比对
 

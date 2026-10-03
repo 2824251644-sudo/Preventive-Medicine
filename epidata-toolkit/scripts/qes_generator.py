@@ -81,6 +81,36 @@ def validate_field_name(name):
     return name.upper()
 
 
+
+def auto_expand_other(fields):
+    """自动补齐"其他/其它"注明字段：选项含"其他/其它"且未显式定义 字段名+O 时，
+    紧跟主字段后自动插入一个文本注明栏（label 取选项原文如 【18】其他）。
+    保证 qes 与 chk 联动（chk 自动生成"其他"跳转时目标一定存在）。"""
+    names = {f.get("name", "") for f in fields}
+    out = []
+    for f in fields:
+        out.append(f)
+        opts = f.get("options") or []
+        if isinstance(opts, str):
+            opts = [o for o in opts.split("\n") if o.strip()]
+        other_num = None
+        for o in opts:
+            m = re.match(r"【(\d+)】([^【】]*)", str(o))
+            if m and ("其他" in m.group(2) or "其它" in m.group(2)):
+                other_num = m.group(1)
+                break
+        if other_num is None:
+            continue
+        o_name = f["name"] + "O"
+        # 显式同源注明字段优先（兼容简化命名，如 HANDWASO）：跳过自动生成
+        if o_name in names or f["name"][:-1] + "O" in names:
+            continue
+        out.append({"name": o_name, "type": "text", "length": 8,
+                    "label": f"【{other_num}】其他", "auto_other": True})
+        names.add(o_name)
+    return out
+
+
 def generate_qes(data):
     """生成 qes 文本内容（按行返回）。
 
@@ -97,7 +127,7 @@ def generate_qes(data):
         sections[s.get("field")] = s.get("title")
 
     seen = set()
-    fields = data.get("fields", [])
+    fields = auto_expand_other(data.get("fields", []))
     if not fields:
         raise ValueError("fields 不能为空")
 

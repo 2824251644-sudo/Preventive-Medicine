@@ -54,6 +54,34 @@ def auto_other_jumps(f, all_names):
                 jumps[num] = target
     return jumps or None
 
+
+def auto_expand_other(fields):
+    """与 qes_generator 相同的自动补齐逻辑：选项含"其他/其它"且无 字段名+O 时，
+    自动插入注明字段（文本，无规则），保证 chk 字段块数与 qes 一致、跳转目标存在。"""
+    names = {f.get("name", "") for f in fields}
+    out = []
+    for f in fields:
+        out.append(f)
+        opts = f.get("options") or []
+        if isinstance(opts, str):
+            opts = [o for o in opts.split("\n") if o.strip()]
+        other_num = None
+        for o in opts:
+            m = re.match(r"【(\d+)】([^【】]*)", str(o))
+            if m and ("其他" in m.group(2) or "其它" in m.group(2)):
+                other_num = m.group(1)
+                break
+        if other_num is None:
+            continue
+        o_name = f["name"] + "O"
+        if o_name in names or f["name"][:-1] + "O" in names:
+            continue  # 显式同源注明字段优先（兼容简化命名，如 HANDWASO）
+        out.append({"name": o_name, "type": "text", "length": 8,
+                    "label": f"【{other_num}】其他", "auto_other": True})
+        names.add(o_name)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="生成 EpiData chk 检查文件（标准格式）")
     ap.add_argument("input", help="字段定义 JSON 文件")
@@ -65,7 +93,7 @@ def main():
     args = ap.parse_args()
 
     data = json.load(open(args.input, encoding="utf-8"))
-    fields = data.get("fields", [])
+    fields = auto_expand_other(data.get("fields", []))
     all_names = {f["name"] for f in fields}
     blocks = []
 
