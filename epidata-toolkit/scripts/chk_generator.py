@@ -73,11 +73,12 @@ def auto_expand_other(fields):
                 break
         if other_num is None:
             continue
+        other_label = str(o).strip()  # 注明字段 label 取选项原文（如 【6】其它）
         o_name = f["name"] + "O"
         if o_name in names or f["name"][:-1] + "O" in names:
             continue  # 显式同源注明字段优先（兼容简化命名，如 HANDWASO）
         out.append({"name": o_name, "type": "text", "length": 8,
-                    "label": f"【{other_num}】其他", "auto_other": True})
+                    "label": other_label, "auto_other": True})
         names.add(o_name)
     return out
 
