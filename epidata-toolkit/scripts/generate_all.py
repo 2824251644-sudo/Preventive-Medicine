@@ -35,7 +35,11 @@ def main():
     ap.add_argument("--newline", choices=["crlf", "lf"], default="crlf",
                     help="输出行尾（默认 crlf）")
     args = ap.parse_args()
-    out = args.output
+    out = os.path.abspath(args.output)
+    out_dir = os.path.dirname(out)
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+        print(f'  ✓ 已创建输出目录: {out_dir}')
     enc, nl = args.encoding, args.newline
 
     print(f"════ 一键生成: {out} ════")

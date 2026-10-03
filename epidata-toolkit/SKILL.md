@@ -1,6 +1,6 @@
 ---
 name: epidata-toolkit
-description: 处理 EpiData 流行病学调查表文件（qes/rec/chk）。当用户需要：将 PDF/Word/Excel/文本调查表转换为 EpiData qes 格式、根据字段定义生成 qes 文件、校验或修复 qes 文件、处理 GBK/UTF-8 编码与 CRLF/LF 行尾问题、生成 EpiData 数据录入文件时使用。
+description: 处理 EpiData 流行病学调查表文件（qes/rec/chk）。当用户需要：将 PDF/Word/Excel/文本调查表转换为 EpiData qes 格式、根据字段定义生成 qes 文件、校验或修复 qes 文件、处理 GBK/UTF-8 编码与 CRLF/LF 行尾问题、生成 EpiData 数据录入文件（chk 检查文件）、双录入 rec 比对与数据质量检查时使用。
 ---
 
 # EpiData QES 处理工具
@@ -22,6 +22,18 @@ python3 scripts/generate_all.py survey.json -o 调查表
 
 等价于依次运行 `qes_generator.py` → `chk_generator.py` → `fix_encoding.py` 转查看版。
 
+## 全流程路线（0 → rec → 比对）
+
+```
+调查表(PDF/Word/扫描件) → 字段JSON → 一键生成 qes/txt/chk → 校验
+→ [EpiData EntryClient: 打开 qes → 生成 rec 数据库] → 双录入(两人各录一份)
+→ rec_compare 比对 → 差异报告 → 按差异回查修正 → 再比对至 100% 一致
+```
+
+- 第 1–3 步（生成/校验/修复）见下文 §1–§3，AI 自动完成
+- 第 4 步（EpiData 建库与录入）必须在 EpiData EntryClient 软件中操作，见 §5
+- 第 5 步（双录入比对）见 §5，输入只需两份 .rec
+
 ## 概览
 
 本 Skill 提供 EpiData 调查表文件（.qes）的生成、校验与编码修复能力。EpiData 是流行病学数据录入软件，qes 文件是其调查表结构定义文件（纯文本）。
@@ -35,7 +47,7 @@ python3 scripts/generate_all.py survey.json -o 调查表
 - Word：按 word skill 读取；Excel：按 sheet skill 读取。
 
 **1.2 生成字段定义（JSON）**
-- **变量命名**：字母开头，仅含字母数字，≤8 字符，语义化缩写（NAME、MAXTEMP、ONSETDT）；不得重复；输出统一大写。
+- **变量命名**：字母开头，仅含字母数字，≤10 字符（与校验器一致），语义化缩写（NAME、MAXTEMP、ONSETDT）；不得重复；输出统一大写。
 - **类型映射**（标准格式）：
   | 调查表内容 | 类型 | JSON | 输出掩码 |
   |---|---|---|---|

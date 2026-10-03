@@ -51,6 +51,8 @@ def parse_rec(path):
     data_fields = [f for f in fields if f['width'] > 0]
     rec_w = sum(f['width'] for f in data_fields)
     n = min(n_recs, len(data) // rec_w) if rec_w else 0
+    if rec_w and len(data) % rec_w:
+        print(f'  ⚠ {path}: 数据区 {len(data)} 字节非记录宽 {rec_w} 整数倍，尾部 {len(data) % rec_w} 字节忽略')
     recs = []
     for i in range(n):
         chunk = data[i * rec_w:(i + 1) * rec_w]
