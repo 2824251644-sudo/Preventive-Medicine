@@ -117,13 +117,14 @@ python3 scripts/chk_generator.py survey.json -o 调查表.chk
 录入完成后做**双录入比对**（EpiData 数据质量核心环节：两人各录一遍，比对不一致处回查原始问卷）：
 
 ```bash
-python3 scripts/rec_compare.py 录入1.rec 录入2.rec -f survey.json -o 差异报告.txt
+python3 scripts/rec_compare.py 录入1.rec 录入2.rec -o 差异报告.txt
 ```
 
-- `survey.json` 与生成 qes/chk 时用**同一份**（字段顺序/宽度必须一致）
-- 自动探测头部偏移；特殊版本用 `--skip-bytes N` 手动指定
+- **自包含解析**：rec 内嵌字段定义（首行字段数/记录数 + 每字段名称/类型/宽度），无需外部 JSON
+- 先比对字段定义（名称/顺序/宽度），不一致报警（退出码 2）；一致后按记录号逐字段比对
 - 输出一致率与差异明细（记录号 + 字段名 + 两值）；退出码 0=一致、1=有差异
-- rec 格式说明与宽度速查见 [references/rec_format.md](references/rec_format.md)
+- 空数据库（未录入）提示后正常完成
+- rec 真实格式（已实测校准）与宽度速查见 [references/rec_format.md](references/rec_format.md)
 
 ## 常见问题
 
