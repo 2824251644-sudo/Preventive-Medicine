@@ -221,3 +221,7 @@ __marimo__/
 
 # 豆包办公临时工具结果
 .tmp-tool-results/
+
+# 查看版与压缩包不入库（需要时用 fix_encoding.py 随时生成）
+*.txt
+*.zip
