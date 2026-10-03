@@ -1,0 +1,5 @@
+# 临时工具结果
+.tmp-tool-results/
+# Python 缓存
+__pycache__/
+*.pyc
