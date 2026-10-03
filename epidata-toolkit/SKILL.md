@@ -5,6 +5,23 @@ description: 处理 EpiData 流行病学调查表文件（qes/rec/chk）。当�
 
 # EpiData QES 处理工具
 
+## 快速开始：一键生成全部文件
+
+字段定义 JSON 就绪后，一条命令同时产出 4 个文件（qes/txt/chk/chk检查txt），qes 与 chk 规则自动联动：
+
+```bash
+python3 scripts/generate_all.py survey.json -o 调查表
+```
+
+| 产出 | 编码 | 用途 |
+|---|---|---|
+| `调查表.qes` | GBK+CRLF+无BOM | EpiData 调查表 |
+| `调查表.txt` | UTF-8 | qes 检查版（记事本查看） |
+| `调查表.chk` | GBK+CRLF+无BOM | 检查规则（自动含"其他"跳转） |
+| `调查表_chk检查.txt` | UTF-8 | chk 检查版 |
+
+等价于依次运行 `qes_generator.py` → `chk_generator.py` → `fix_encoding.py` 转查看版。
+
 ## 概览
 
 本 Skill 提供 EpiData 调查表文件（.qes）的生成、校验与编码修复能力。EpiData 是流行病学数据录入软件，qes 文件是其调查表结构定义文件（纯文本）。
@@ -77,7 +94,23 @@ description: 处理 EpiData 流行病学调查表文件（qes/rec/chk）。当�
 
 运行 `scripts/fix_encoding.py <input> -o <output> --encoding gbk --crlf --strip-bom`，支持编码转换（UTF-8 ↔ GBK）、行尾转换（LF ↔ CRLF）、BOM 去除/添加。
 
-### 4. 生成 rec/chk 文件
+### 4. 生成 chk 检查文件（数据质控）
+
+字段 JSON 可附加 chk 规则（required/range/legal/jumps 等），运行：
+
+```bash
+python3 scripts/chk_generator.py survey.json -o 调查表.chk
+```
+
+**标准格式（用户锚定）**：字段头裸字段名（无花括号、不写 TYPE）；`  RANGE 1 5` 空格分隔；`LEGAL`/`JUMPS` 为子块（内容缩进4、`  END` 缩进2结束）；`  MUSTENTER` 连写；字段块以无缩进 `END` 收尾。**RANGE 与 LEGAL 互斥**（选项字段走 LEGAL，纯数值范围走 RANGE）。未确认结构（TYPE/AUTOENTER/NOENTER/KEY/REPEAT/VERIFY/BEFORE/AFTER）一律不生成。
+
+**自动"其他"跳转**：字段选项含"其他/其它"且存在注明字段（字段名+O）时自动生成 JUMPS（选其他→注明栏），与显式 jumps 合并不覆盖。
+
+**必填原则**：核心人口学/暴露/诊断/调查信息设 `required`；有"不知道"兜底的暴露字段放心必填；条件性字段不简单必填。
+
+**生成后校验**：字段块数=qes 字段数；RANGE 与 LEGAL 互斥；JUMPS 目标全部存在；"其他"字段跳转全覆盖；MUSTENTER 逐一核对不卡录入。规则完整规范见 [references/chk_format.md](references/chk_format.md)。
+
+### 5. 生成 rec 数据文件
 
 .qes 是纯文本可直接生成；**.rec 数据文件必须用 EpiData 软件**（EntryClient 中由 qes 创建，自动加 ID 字段）。告知用户：打开 EpiData Entry → 选择 qes → 生成 rec，如报错优先检查编码（GBK）与行尾（CRLF）。
 
