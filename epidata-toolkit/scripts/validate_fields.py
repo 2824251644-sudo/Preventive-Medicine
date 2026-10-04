@@ -79,7 +79,9 @@ def collect_errors_warns(data):
             # 其他 → 注明字段
             if any(w in str(o) for o in opts for w in OTHER_WORDS):
                 o_name = name + 'O' if name[-1] != 'O' else name
-                if o_name not in names and o_name not in {x['name'] for x in fields}:
+                if len(o_name) > 10:
+                    errs.append(f'✗ {name}: 自动注明字段 {o_name} 超 10 字符（{len(o_name)}），请缩短基础字段名')
+                elif o_name not in names and o_name not in {x['name'] for x in fields}:
                     warns.append(f'⚠ {name}: 含"其他"选项但未见注明字段 {o_name}（qes 会自动补齐，若 JSON 想显式定义请加）')
         # 掩码
         if ftype == 'number':
