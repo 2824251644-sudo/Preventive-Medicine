@@ -232,3 +232,5 @@ epidata_work/
 *.chk
 !epidata-toolkit/assets/template.qes
 second-brain/
+# 回归测试夹具必须入库（真实 rec/qes 样例）
+!epidata-toolkit/tests/fixtures/

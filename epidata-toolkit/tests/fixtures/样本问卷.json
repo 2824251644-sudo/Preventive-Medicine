@@ -1,0 +1,15 @@
+{
+  "title": "回归测试样本问卷",
+  "fields": [
+    {"name": "NAME", "type": "text", "label": "1.姓名：", "length": 4, "required": true},
+    {"name": "SEX", "type": "number", "label": "2.性别：", "options": "【1】男\n【2】女", "required": true},
+    {"name": "AGE", "type": "number", "label": "3.年龄：", "digits": 3, "required": true},
+    {"name": "MAXTEMP", "type": "number", "label": "4.最高体温：", "digits": "2.1", "range": [30, 45]},
+    {"name": "TEL", "type": "number", "label": "5.联系电话：", "digits": 11},
+    {"name": "BIRTHDT", "type": "date", "label": "6.出生日期：", "required": true},
+    {"name": "FOUNDTM", "type": "time", "label": "7.发现时间："},
+    {"name": "OCCUP", "type": "number", "label": "8.职业：", "options": "【1】幼托儿童\n【2】散居儿童\n【18】其他"},
+    {"name": "ADDRESS", "type": "text", "label": "9.现住址：", "length": 20, "required": true},
+    {"name": "MEMO1", "type": "memo", "label": "10.备注：", "length": 50}
+  ]
+}

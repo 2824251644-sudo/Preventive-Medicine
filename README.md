@@ -16,6 +16,7 @@
 - ✅ rec↔qes 结构校验：比对字段数量/名称/顺序，防错位漏项
 - ✅ 编码修复：UTF-8 ↔ GBK、LF ↔ CRLF、BOM 增删
 - ✅ REC 双录入比对：自包含解析，逐字段比对输出差异报告
+- ✅ **v3.0 新增**：字段 JSON 预校验（生成前拦错）、rec → CSV/Excel 导出、rec 异常值扫描、字段字典 + 录入手册自动生成、PDF（含扫描件 OCR）→ 字段 JSON 草稿、全链路回归测试（12 项）
 
 ## 快速开始
 
@@ -51,7 +52,14 @@ epidata-toolkit/
 │   ├── chk_generator.py         # 字段 JSON → chk（自动 RANGE/必填/跳转）
 │   ├── rec_check.py             # rec↔qes 结构校验
 │   ├── rec_compare.py           # rec 双录入比对
-│   └── fix_encoding.py          # 编码/行尾/BOM 修复
+│   ├── fix_encoding.py          # 编码/行尾/BOM 修复
+│   ├── validate_fields.py       # v3.0 字段 JSON 预校验
+│   ├── rec_export.py            # v3.0 rec → CSV/Excel 导出
+│   ├── rec_scan.py              # v3.0 rec 异常值扫描
+│   ├── dict_generator.py        # v3.0 字段字典 + 录入手册
+│   ├── pdf_to_json.py           # v3.0 PDF（含扫描件 OCR）→ 字段 JSON 草稿
+│   └── run_tests.py             # v3.0 全链路回归测试（12 项）
+├── tests/fixtures/              # v3.0 回归夹具（真实 v3 问卷/肺结核 rec）
 ├── references/
 │   ├── qes_format.md            # QES 行格式与掩码规范
 │   ├── chk_format.md            # CHK 标准格式与规则
@@ -72,6 +80,8 @@ epidata-toolkit/
 - 禽流感调查表 389 字段（含自动补齐的「其他」注明字段，qes + chk + rec 结构解析）
 - 肺结核调查表 170 字段（rec 结构解析）
 - 双录入比对：差异定位、一致率统计、退出码 0/1/2
+- 回归测试 12 项全过（生成→校验→rec 结构→导出→扫描），含真实 v3 问卷/肺结核样例
+- PDF 扫描件 OCR → 175 字段草稿（半自动，人工核对后可用）
 
 ## 常见问题与报错排查
 

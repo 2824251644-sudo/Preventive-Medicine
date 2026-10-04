@@ -36,7 +36,10 @@ import argparse, json, re, sys
 
 def opt_numbers(f):
     nums = []
-    for o in f.get("options", []):
+    opts = f.get("options", [])
+    if isinstance(opts, str):
+        opts = [o for o in opts.split("\n") if o.strip()]
+    for o in opts:
         m = re.match(r"【(\d+)】", o)
         if m:
             nums.append(int(m.group(1)))
@@ -64,7 +67,10 @@ def auto_range(f, name, label):
 def auto_other_jumps(f, all_names):
     """自动"其他"跳转：选项含其他/其它 → 注明字段（字段名+O）"""
     jumps = dict(f.get("jumps") or {})
-    for o in f.get("options", []):
+    opts = f.get("options") or []
+    if isinstance(opts, str):
+        opts = [o for o in opts.split("\n") if o.strip()]
+    for o in opts:
         m = re.match(r"【(\d+)】([^【】]*)", o)
         if m and ("其他" in m.group(2) or "其它" in m.group(2)):
             num = m.group(1)
