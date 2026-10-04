@@ -4,14 +4,16 @@
 用法:
   python3 scripts/rec_compare.py 录入1.rec 录入2.rec [-o 差异报告.txt]
 
-EpiData .rec 真实格式（已实测校准，肺结核/禽流感标准格式验证）:
-  1. 首行:   <字段数> <记录数> Filelabel: <标签长度>
-  2. 字段定义区: 每行一个字段
-     _字段名<填充> <记录号> <序号> 30 <标签字节长> <序号> <类型码> <宽度> 112 <字段名><标签文本>
-     类型码: 0=LABEL/标题(宽0)  1=文本(宽=字数x2)  6=数字(宽=位数)
-             11=日期(宽10)      101=小数(宽=位数+小数位+2)
+EpiData .rec 真实格式（已实测校准，肺结核/禽流感/v3 标准格式验证）:
+  1. 首行:   <定义区总行数> <记录数> Filelabel: <标签长度>
+  2. 字段定义区: 每行一个段
+     前缀字段名<填充> 类型 序号 30 起始 长度 小数 类型码 112 字段名+标签文本
+     - 真实数据字段: 类型列≤10 且 类型码>0（类型码=数据存储字节宽）
+     - 标题段: 类型码=0（章节标题/说明文本）→ 跳过
+     - 选项标签段(_LABELn, 文本为【1】男  【2】女): 类型列>10 → 跳过
+     - 掩码中文显示段(##时##分 拆出的"时"字, 如 FOUNDTM1): 类型列>10 → 跳过
   3. 数据区: 字段定义区之后的定长字节流
-     每条记录宽度 = 全部非 LABEL 字段宽度之和，字段按定义顺序排列
+     每条记录宽度 = 真实数据字段类型码之和（掩码段/选项段不计入），字段按定义顺序排列
 
 比对逻辑:
   先比对两个 rec 的字段定义（字段数/名称/宽度），不一致时报警；
@@ -20,8 +22,10 @@ EpiData .rec 真实格式（已实测校准，肺结核/禽流感标准格式验
 import argparse, re, sys
 
 FIELD_PAT = re.compile(
-    r'^\s*([#_]?)([A-Za-z][A-Za-z0-9]*)\s+\d+\s+(\d+)\s+30\s+(\d+)\s+\d+\s+(\d+)\s+(\d+)\s+112\s+'
+    r'^\s*([#_]?)([A-Za-z][A-Za-z0-9]*)\s+(\d+)\s+(\d+)\s+30\s+(\d+)\s+\d+\s+(\d+)\s+(\d+)\s+112\s+'
 )
+# 数字列: 类型 序号 30 起始 长度 小数 类型码 112
+# group(2)=字段名  group(3)=类型列  group(5)=起始  group(6)=小数  group(7)=类型码(数据字节宽)
 
 def parse_rec(path):
     """字节级解析：CRLF 定位字段定义行，字段定义区后余下字节即数据区"""
@@ -44,11 +48,13 @@ def parse_rec(path):
         m = FIELD_PAT.match(ln)
         if not m:
             raise SystemExit(f'✗ {path}: 字段定义行无法解析: {ln[:80]!r}')
-        fields.append({'name': m.group(2), 'seq': int(m.group(3)),
-                       'typ': int(m.group(5)), 'width': int(m.group(6))})
+        fields.append({'name': m.group(2), 'typ': int(m.group(3)),
+                       'seq': int(m.group(4)), 'dec': int(m.group(6)),
+                       'width': int(m.group(7))})
         pos = eol + 2
     data = raw[pos:]
-    data_fields = [f for f in fields if f['width'] > 0]
+    # 真实数据字段：类型列≤10 且 类型码>0（标题段类型码0、选项标签/掩码中文段类型>10 均跳过）
+    data_fields = [f for f in fields if f['typ'] <= 10 and f['width'] > 0]
     rec_w = sum(f['width'] for f in data_fields)
     n = min(n_recs, len(data) // rec_w) if rec_w else 0
     if rec_w and len(data) % rec_w:
