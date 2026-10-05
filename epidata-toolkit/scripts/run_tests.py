@@ -15,7 +15,7 @@
 
 退出码: 0=全部通过  1=有失败
 """
-import os, shutil, subprocess, sys, tempfile
+import os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
@@ -67,7 +67,8 @@ def main():
         expect=0, contains='已生成')
     if os.path.exists(chk_path):
         chk = open(chk_path, 'rb').read().decode('gbk', errors='replace')
-        empty_blocks = chk.count('END\r\nEND')
+        # 空块 = 字段名行后直接 END（无任何规则行）；LABELBLOCK 尾部的"  END/END"缩进结构不算
+        empty_blocks = len(re.findall(r'(?m)^[A-Za-z][A-Za-z0-9]*\r\nEND\r\n', chk))
         jumps_ok = all(t in chk for t in ('OCCUPO', 'MUSTENTER', 'RANGE'))
         run('T3a chk 无空块', ['true'], expect=0 if empty_blocks == 0 else 1)
         run('T3b chk 关键规则存在', ['true'], expect=0 if jumps_ok else 1)

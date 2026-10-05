@@ -120,6 +120,27 @@ python3 scripts/chk_generator.py survey.json -o 调查表.chk
 
 **标准格式（用户锚定）**：字段头裸字段名（无花括号、不写 TYPE）；`  RANGE 1 5` 空格分隔；`LEGAL`/`JUMPS` 为子块（内容缩进4、`  END` 缩进2结束）；`  MUSTENTER` 连写；字段块以无缩进 `END` 收尾。**RANGE 与 LEGAL 互斥**（选项字段走 LEGAL，纯数值范围走 RANGE）。**无检查命令的字段不写入 chk**（官方规范：if there are no Check commands, then nothing is written）。未确认结构（TYPE/AUTOENTER/NOENTER/KEY/REPEAT/VERIFY/BEFORE/AFTER）一律不生成。
 
+**LABELBLOCK 值标签（EpiData 3.1 真实格式，2026-10-05 确认）**：含编号选项的字段自动在 chk 文件头生成值标签块 + 字段块内关联：
+```
+LABELBLOCK
+  LABEL label_sex
+    1  男
+    2  女
+  END
+END
+SEX
+  LEGAL
+    1
+    2
+  END
+  COMMENT LEGAL USE label_sex   ← LEGAL END 后紧跟
+  MUSTENTER
+END
+```
+- 标签名规则：`label_` + 字段名小写（label_sex/label_marital）；标签文本取选项【n】后的原文，编号一一对应
+- 字段 JSON 显式 `"labelblock": false` 可关闭（长文本选项如 EDU 式字段不生成标签）
+- LABELBLOCK 仅在至少一个字段需要标签时输出
+
 **自动规则（默认开启）**：
 - "其他"补齐：字段选项含"其他/其它"时 qes 自动生成注明字段 `字段名+O`，chk 自动 JUMPS（其他编号 → 注明字段），含"其他"字段 100% 覆盖跳转
 - RANGE 自动推断：无 options 的数值字段按字段名/标签命中保守表自动生成（年龄 0-120、体温 30-45），显式 range 优先

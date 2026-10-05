@@ -80,6 +80,47 @@ def auto_other_jumps(f, all_names):
     return jumps or None
 
 
+def auto_labels(fields):
+    """LABELBLOCK 值标签（EpiData 3.1 真实格式）：从选项【n】文本自动提取 编号→文本 映射。
+    返回 {字段名: {编号: 文本}}。字段 JSON 显式 labelblock: false 时跳过（如长文本选项）。
+    LABEL 命名规则：label_ + 字段名小写（用户样例 label_sex / label_marital）。"""
+    labels = {}
+    for f in fields:
+        if f.get("labelblock") is False:
+            continue
+        opts = f.get("options") or []
+        if isinstance(opts, str):
+            opts = [o for o in opts.split("\n") if o.strip()]
+        pairs = {}
+        for o in opts:
+            m = re.match(r"【(\d+)】(.+)", str(o).strip())
+            if m:
+                pairs[int(m.group(1))] = m.group(2).strip()
+        if pairs:
+            labels[f["name"]] = pairs
+    return labels
+
+
+def build_labelblock(labels):
+    """LABELBLOCK 文件头块（用户锚定格式，不可偏离）：
+    LABELBLOCK
+      LABEL label_sex
+        1  男
+        2  女
+      END
+    END"""
+    if not labels:
+        return None
+    lines = ["LABELBLOCK"]
+    for fname, pairs in labels.items():
+        lines.append(f"  LABEL label_{fname.lower()}")
+        for n in sorted(pairs):
+            lines.append(f"    {n}  {pairs[n]}")
+        lines.append("  END")
+    lines.append("END")
+    return "\n".join(lines)
+
+
 def auto_expand_other(fields):
     """与 qes_generator 相同的自动补齐逻辑：选项含"其他/其它"且无 字段名+O 时，
     自动插入注明字段（文本，无规则），保证 chk 字段块数与 qes 一致、跳转目标存在。"""
@@ -148,6 +189,8 @@ def main():
     data = json.load(open(args.input, encoding="utf-8"))
     fields = auto_expand_other(data.get("fields", []))
     all_names = {f["name"] for f in fields}
+    labels = auto_labels(fields)
+    labelblock = build_labelblock(labels)
     blocks = []
 
     for f in fields:
@@ -172,12 +215,14 @@ def main():
                 rng_str = str(rng).replace('-', ' ')
             lines.append(f"  RANGE {rng_str}")
 
-        # LEGAL 子块（选项/合法值，每个一行）
+        # LEGAL 子块（选项/合法值，每个一行）；其后紧跟 COMMENT LEGAL USE 值标签
         if legal:
             lines.append("  LEGAL")
             for v in legal:
                 lines.append(f"    {v}")
             lines.append("  END")
+            if name in labels:
+                lines.append(f"  COMMENT LEGAL USE label_{name.lower()}")
 
         # JUMPS 子块（显式 jumps + 自动"其他"跳转合并）
         jumps = auto_other_jumps(f, all_names)
@@ -199,7 +244,11 @@ def main():
         lines.append("END")  # 字段块结束（无缩进）
         blocks.append("\n".join(lines))
 
-    content = "\n\n".join(blocks) + "\n"
+    parts = []
+    if labelblock:
+        parts.append(labelblock)
+    parts.extend(blocks)
+    content = "\n\n".join(parts) + "\n"
     newline = "\r\n" if args.newline == "crlf" else "\n"
     content = content.replace("\n", newline)
 

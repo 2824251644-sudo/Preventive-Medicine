@@ -30,6 +30,40 @@ END                       ← ⑥字段块结束：无缩进
 
 **未确认/不使用**：TYPE、AUTOENTER、NOENTER、KEY、REPEAT、VERIFY、BEFORE/AFTER ENTRY 等结构一律**不生成**（待用户提供标准样例后再支持）。
 
+## LABELBLOCK 值标签（2026-10-05 用户提供真实样例确认）
+
+录入界面把选项编号显示为可读文本（如"男/女"）。chk 文件**最开头**输出 LABELBLOCK 块，字段块内用 `COMMENT LEGAL USE` 关联：
+
+```
+LABELBLOCK                    ← 无缩进，文件级块
+  LABEL label_sex             ← 缩进2；标签名 = label_ + 字段名小写
+    1  男                     ← 缩进4：编号 + 空格 + 文本（编号一一对应）
+    2  女
+  END                         ← LABEL 子块结束（缩进2）
+  LABEL label_marital
+    1  未婚
+    2  已婚
+    3  离异
+    4  丧偶
+  END
+END                           ← LABELBLOCK 结束（无缩进）
+
+SEX
+  LEGAL
+    1
+    2
+  END
+  COMMENT LEGAL USE label_sex ← LEGAL END 后紧跟（缩进2），关联值标签
+  MUSTENTER
+END
+```
+
+规则：
+- **自动生成**：含编号选项（`【n】文本`）的字段自动生成 LABEL 子块 + 字段块内 `COMMENT LEGAL USE`；LABEL 编号与 LEGAL 一致
+- **关闭**：字段 JSON 显式 `"labelblock": false`（长文本选项如 EDU 式字段不生成标签）
+- LABELBLOCK 仅在至少一个字段需要标签时输出；无标签字段（BIRTH 等）不涉及
+- 标签文本 = 选项【n】后的原文（`【1】男` → `男`）；自动"其他"注明字段（文本类型）不进 LABELBLOCK
+
 ## 生成器规则映射（chk_generator.py）
 
 | 字段 JSON | 输出 |
