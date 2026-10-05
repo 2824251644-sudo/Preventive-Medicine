@@ -12,7 +12,7 @@
 掩码推断（OCR 文本特征 → EpiData 类型）:
   口口口口年口口月口口日口口时口口分 → date + time（拆成 字段DT/字段TM 两个字段）
   口口口口年口口月口口日            → date（yyyy）
-  口口日/口口月口口日              → date（dd/mm/yyyy）
+  口口日/口口月口口日              → date（yyyy/mm/dd）
   口口时口口分                     → time（##时##分）
   口口×N（身份证类）                → number，位数=N
   电话/手机/传真                  → number digits=11
@@ -107,7 +107,7 @@ def infer_field(text, qno, prev_lines):
                     {'name': name + 'TM', 'type': 'time', 'label': base}], None
         return [{'name': name, 'type': 'date', 'label': base, 'date_format': '<yyyy/mm/dd>'}], None
     if DATE_DMY_RE.search(t):
-        return [{'name': f'Q{qno}', 'type': 'date', 'label': label, 'date_format': '<dd/mm/yyyy>'}], None
+        return [{'name': f'Q{qno}', 'type': 'date', 'label': label, 'date_format': '<yyyy/mm/dd>'}], None
     if TIME_RE.search(t):
         return [{'name': f'Q{qno}', 'type': 'time', 'label': label}], None
     # 身份证/长数字

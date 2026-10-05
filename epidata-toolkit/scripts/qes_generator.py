@@ -24,7 +24,7 @@ JSON 输入格式:
     number  digits: int(位数) 或 str("整数位.小数位")   -> # / ##.#
     text    length: 中文字数（输出 2*length 个下划线，两_=一字） -> ____
     date    六种格式之一: <dd/mm/yyyy> <mm/dd/yyyy> <yyyy/mm/dd>
-             <Today-dmy> <Today-mdy> <Today-ymd>（默认 <dd/mm/yyyy>，可用 date_format 指定）
+             <Today-dmy> <Today-mdy> <Today-ymd>（默认 <yyyy/mm/dd>，可用 date_format 指定）
     time    无 <hh:mm>！输出 ##时##分
     memo    length: 中文字数 -> 长下划线
 
@@ -127,7 +127,7 @@ def build_mask(field):
             raise ValueError(f"字段 {field.get('name')}: length 必须 >= 1（中文字数）")
         return "_" * (length * 2)
     if ftype == "date":
-        fmt = field.get("date_format") or infer_date_format(field.get("label", "")) or "<dd/mm/yyyy>"
+        fmt = field.get("date_format") or infer_date_format(field.get("label", "")) or "<yyyy/mm/dd>"
         if fmt not in VALID_DATES:
             raise ValueError(f"字段 {field.get('name')}: 非法日期格式 '{fmt}'，仅支持 {VALID_DATES}")
         return fmt

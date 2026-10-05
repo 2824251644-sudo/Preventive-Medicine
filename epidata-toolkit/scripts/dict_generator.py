@@ -22,7 +22,7 @@ def mask_desc(f):
     if ftype == 'number':
         return f"数字（digits={f.get('digits', '自动')}）"
     if ftype == 'date':
-        return f"日期（{f.get('date_format', '<dd/mm/yyyy>')}）"
+        return f"日期（{f.get('date_format', '<yyyy/mm/dd>')}）"
     if ftype == 'time':
         return '时间（##时##分）'
     if ftype == 'memo':
@@ -57,7 +57,7 @@ def fill_guide(f):
     ftype = f.get('type', 'text')
     label = f.get('label', '')
     if ftype == 'date':
-        return f'按 {f.get("date_format", "<dd/mm/yyyy>")} 格式填写（日/月/年），自动日期无需手输。'
+        return f'按 {f.get("date_format", "<yyyy/mm/dd>")} 格式填写（年/月/日），自动日期无需手输。'
     if ftype == 'time':
         return '填 ##时##分（如 08:30 录 8 时 30 分）。'
     opts = options_list(f)

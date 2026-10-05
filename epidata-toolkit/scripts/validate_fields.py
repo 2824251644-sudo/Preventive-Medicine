@@ -93,7 +93,7 @@ def collect_errors_warns(data):
                 if not re.match(r'^\d+(\.\d+)?$', d):
                     errs.append(f'✗ {name}: digits "{d}" 非法（应为 "11" 或 "2.1"）')
         elif ftype == 'date':
-            df = f.get('date_format', '<dd/mm/yyyy>')
+            df = f.get('date_format', '<yyyy/mm/dd>')
             if df not in VALID_DATES:
                 errs.append(f'✗ {name}: 非法日期格式 {df}（仅 6 种）')
         elif ftype in ('text', 'memo'):

@@ -55,7 +55,7 @@ python3 scripts/generate_all.py survey.json -o 调查表
   | 大选项集（>9项） | number | `digits:2` | `##` |
   | 带小数（体温/白细胞） | number | `digits:"2.1"` | `##.#` |
   | 文本 | text | `length:字数` | `_`×2（两_=一字） |
-  | 日期 | date | — | `<dd/mm/yyyy>` |
+  | 日期 | date | — | `<yyyy/mm/dd>` |
   | 时间 | time | — | `##时##分`（无 `<hh:mm>`） |
   | 小结/备注 | memo | `length:字数` | 长下划线 |
 - **联系电话 = 11 位数字**掩码 `###########`（type:"number", digits:11），不用文本下划线
@@ -63,7 +63,7 @@ python3 scripts/generate_all.py survey.json -o 调查表
 - **表格展开**：按原表固定行数展开为多组字段，变量命名 `前缀+序号+列字母`（如就诊6次×8列：VISIT1U/VISIT1D/.../VISIT6O；禽类饲养3行：POUL1K...POUL3F；家庭成员5位：MEM1N...MEM5W）。
 - **"其他/其它____（注明）"自动补齐**：字段选项含"其他/其它"时，生成器自动追加注明字段 `字段名+O`（文本，label 取选项原文如 `【18】其他`，不加冒号），无需手工配置；若 JSON 已显式定义同源注明字段（`name+O` 或 `name[:-1]+O`，兼容 HANDWASO 式简化命名）则跳过，不重复生成。
 - **掩码位数自动匹配**：number 字段未显式 `digits` 时，按选项编号最大位数自动设置（选项到【10】以上自动用 `##`），不会截断录入
-- **日期格式自动推断**：date 字段未显式 `date_format` 时，按 label 中"年 月 日/日 月 年/月 日 年"连续提示自动推断 `<yyyy/mm/dd>`/`<dd/mm/yyyy>`/`<mm/dd/yyyy>`；无提示默认 `<dd/mm/yyyy>`
+- **日期格式自动推断**：date 字段未显式 `date_format` 时，按 label 中"年 月 日/日 月 年/月 日 年"连续提示自动推断 `<yyyy/mm/dd>`/`<dd/mm/yyyy>`/`<mm/dd/yyyy>`；无提示默认 `<yyyy/mm/dd>`
 - **上标字符自动替换**：GBK 不支持的字符自动替换（`⁹→^9`、下标数字→数字），替换后仍不可编码才报错；GBK 原生支持 ℃±×÷≤≥μ 与罗马数字 Ⅰ-Ⅻ（对照见 references/gbk_chars.md）
 - **label 符号自动转中文**：问题文本中的数学/范围符号生成时自动替换（`>=→大于等于`、`<=→小于等于`、`>`→大于、`<`→小于、`=`→等于、`-`→至），避免 qes 行中 `<` `>` 干扰 EpiData 解析（掩码标记）、`=` `-` 影响显示；日期掩码 `<dd/mm/yyyy>` 等不受影响
 
@@ -92,7 +92,7 @@ python3 scripts/generate_all.py survey.json -o 调查表
 {SEX}2.性别：#  【1】男  【2】女
 {OCCUP}10.职业：##  【1】幼托儿童  【2】散居儿童  【17】医疗机构工作人员  【18】其他
 {OCCUPO}【18】其他________________
-{ONSETDT}1.发病日期：<dd/mm/yyyy>
+{ONSETDT}1.发病日期：<yyyy/mm/dd>
 {FOUNDTM}发现时间：##时##分
 ```
 
