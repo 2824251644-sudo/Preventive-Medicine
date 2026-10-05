@@ -52,6 +52,8 @@ def collect_errors_warns(data):
             errs.append(f'✗ {name}: 非法类型 {ftype}（支持 {sorted(TYPES)}）')
         if not f.get('label'):
             warns.append(f'⚠ {name}: 缺 label（生成后问题文本为空）')
+        elif re.search(r'[<>=\-]', str(f.get('label'))):
+            warns.append(f'⚠ {name}: label 含数学/范围符号（生成时会自动转中文：>大于 <小于 =等于 >=大于等于 <=小于等于 -至）')
         # 选项
         opts = f.get('options')
         if isinstance(opts, str):

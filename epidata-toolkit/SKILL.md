@@ -65,6 +65,7 @@ python3 scripts/generate_all.py survey.json -o 调查表
 - **掩码位数自动匹配**：number 字段未显式 `digits` 时，按选项编号最大位数自动设置（选项到【10】以上自动用 `##`），不会截断录入
 - **日期格式自动推断**：date 字段未显式 `date_format` 时，按 label 中"年 月 日/日 月 年/月 日 年"连续提示自动推断 `<yyyy/mm/dd>`/`<dd/mm/yyyy>`/`<mm/dd/yyyy>`；无提示默认 `<dd/mm/yyyy>`
 - **上标字符自动替换**：GBK 不支持的字符自动替换（`⁹→^9`、下标数字→数字），替换后仍不可编码才报错；GBK 原生支持 ℃±×÷≤≥μ 与罗马数字 Ⅰ-Ⅻ（对照见 references/gbk_chars.md）
+- **label 符号自动转中文**：问题文本中的数学/范围符号生成时自动替换（`>=→大于等于`、`<=→小于等于`、`>`→大于、`<`→小于、`=`→等于、`-`→至），避免 qes 行中 `<` `>` 干扰 EpiData 解析（掩码标记）、`=` `-` 影响显示；日期掩码 `<dd/mm/yyyy>` 等不受影响
 
 **1.3 生成与交付**
 1. `scripts/qes_generator.py <input.json> -o <output.qes>`（默认 GBK+CRLF；自动：掩码位数匹配/日期格式推断/上标替换）

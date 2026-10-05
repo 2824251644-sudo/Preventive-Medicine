@@ -77,6 +77,20 @@ def _gbk_ok(c):
         return False
 
 
+# label 中数学/范围符号 → 中文（先长后短，避免 >= 被 > 先吃掉）
+SYMBOL_MAP = [('>=', '大于等于'), ('<=', '小于等于'), ('>', '大于'),
+              ('<', '小于'), ('=', '等于'), ('-', '至')]
+
+
+def sanitize_label(text):
+    """label 符号清洗：qes 行中 '<' '>' 会干扰 EpiData 解析（掩码标记），
+    '=' '-' 影响显示与录入，统一转中文。仅作用于 label，不动掩码/日期格式。"""
+    if not text:
+        return text
+    for s, rep in SYMBOL_MAP:
+        text = text.replace(s, rep)
+    return text
+
 
 def infer_date_format(label):
     """日期格式自动推断：按 label 中"年月日"连续提示（可夹空格）推断填写顺序。
@@ -215,8 +229,8 @@ def generate_qes(data):
         auto_digits(field, opts)   # 掩码位数自动匹配（在 build_mask 前）
         mask = build_mask(field)
 
-        # 行: {变量}问题文本掩码
-        label = str(field.get("label", "")).strip()
+        # 行: {变量}问题文本掩码（label 符号清洗：><= 等转中文，防 EpiData 解析干扰）
+        label = sanitize_label(str(field.get("label", "")).strip())
         if label and not label.startswith("【") and not re.search(r"[:：?？。]$", label):
             label += "："  # 全角冒号（与标准示范一致）；【n】选项注明行不加冒号
         line = f"{{{name}}}{label}{mask}"
