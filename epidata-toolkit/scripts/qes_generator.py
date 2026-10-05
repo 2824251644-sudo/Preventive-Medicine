@@ -79,16 +79,20 @@ def _gbk_ok(c):
 
 # label 中数学/范围符号 → 中文（先长后短，避免 >= 被 > 先吃掉）
 SYMBOL_MAP = [('>=', '大于等于'), ('<=', '小于等于'), ('>', '大于'),
-              ('<', '小于'), ('=', '等于'), ('-', '至')]
+              ('<', '小于'), ('=', '等于')]
 
 
 def sanitize_label(text):
     """label 符号清洗：qes 行中 '<' '>' 会干扰 EpiData 解析（掩码标记），
-    '=' '-' 影响显示与录入，统一转中文。仅作用于 label，不动掩码/日期格式。"""
+    '=' 影响显示与录入，统一转中文。仅作用于 label，不动掩码/日期格式。
+    '-' 只在两侧是数字（数值范围，如 3-5岁 → 3至5岁）时转"至"；
+    单词连字符（E-mail、X-ray）保留不转（用户锚定 2026-10-05）。"""
     if not text:
         return text
     for s, rep in SYMBOL_MAP:
         text = text.replace(s, rep)
+    # 数字范围连字符 → 至（仅 \d-\d，避免误伤 E-mail 等英文连字符）
+    text = re.sub(r'(\d)\s*-\s*(\d)', r'\1至\2', text)
     return text
 
 
@@ -121,10 +125,13 @@ def build_mask(field):
             return "#" * int(int_part) + "." + "#" * int(dec_part)
         raise ValueError(f"字段 {field.get('name')}: digits 必须是整数或 '整数.小数' 格式")
     if ftype in ("text", "memo"):
-        # 文本字段用下划线：两个 _ = 一个中文字
+        # 文本字段用下划线：默认两个 _ = 一个中文字（EpiData 中文 1 字 = 2 列宽）
+        # ascii:true 时 length 直接 = 下划线数（ASCII 1 字符 = 1 列），如身份证号 18 位可录大写 X
         length = int(field.get("length", 10))
         if length < 1:
             raise ValueError(f"字段 {field.get('name')}: length 必须 >= 1（中文字数）")
+        if field.get("ascii"):
+            return "_" * length
         return "_" * (length * 2)
     if ftype == "date":
         fmt = field.get("date_format") or infer_date_format(field.get("label", "")) or "<yyyy/mm/dd>"
@@ -179,9 +186,19 @@ def auto_expand_other(fields):
 
 
 def auto_digits(field, opts):
-    """掩码位数自动匹配：number 字段未显式 digits 时，按选项编号最大位数自动设置。
-    例: 选项编号到【10】以上时自动用 ##（1位#容纳不下会截断录入）。"""
+    """掩码位数自动匹配：number 字段未显式 digits 时，自动推断。
+
+    优先级:
+      1) 固定语义字段（label 命中）: 电话/手机→11位#（EpiData 数字掩码）
+      2) 选项编号最大位数: 选项到【10】以上时自动用 ##（1位#容纳不下会截断录入）
+    """
     if field.get("type", "").lower() != "number" or "digits" in field:
+        return
+    label = field.get("label", "")
+    # 固定语义: 电话/手机 11 位数字（用户锚定, 2026-10-05）
+    # 注: 身份证不用 number（末位可能为大写 X，数字掩码录不了），走 text ascii:true
+    if re.search(r"电话|手机", label):
+        field["digits"] = 11
         return
     nums = []
     for o in opts:
